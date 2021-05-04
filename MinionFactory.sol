@@ -56,6 +56,8 @@ contract Minion is IERC721Receiver {
         address proposer;
         bool executed;
         bytes data;
+        address token;
+        uint256 amount;
     }
 
     event ProposeAction(uint256 proposalId, address proposer);
@@ -83,7 +85,7 @@ contract Minion is IERC721Receiver {
     
     //  -- Withdraw Functions --
 
-    function doWithdraw(address token, uint256 amount) external memberOnly {
+    function doWithdraw(address token, uint256 amount) public memberOnly {
         moloch.withdrawBalance(token, amount); // withdraw funds from parent moloch
         emit DoWithdraw(token, amount);
     }
@@ -108,18 +110,25 @@ contract Minion is IERC721Receiver {
         address actionTo,
         uint256 actionValue,
         bytes calldata actionData,
-        string calldata details
+        string calldata details,
+        address withdrawToken,
+        uint256 withdrawAmount
     ) external memberOnly returns (uint256) {
         // No calls to zero address allows us to check that proxy submitted
         // the proposal without getting the proposal struct from parent moloch
         require(actionTo != address(0), "invalid actionTo");
-
+        
+        if(withdrawToken == address(0) || withdrawAmount == 0){
+            withdrawToken = molochDepositToken;
+            withdrawAmount = 0;
+        } 
+        
         uint256 proposalId = moloch.submitProposal(
             address(this),
             0,
             0,
-            0,
-            molochDepositToken,
+            withdrawAmount,
+            withdrawToken,
             0,
             molochDepositToken,
             details
@@ -130,7 +139,9 @@ contract Minion is IERC721Receiver {
             to: actionTo,
             proposer: msg.sender,
             executed: false,
-            data: actionData
+            data: actionData,
+            token: withdrawToken,
+            amount: withdrawAmount
         });
 
         actions[proposalId] = action;
@@ -147,6 +158,11 @@ contract Minion is IERC721Receiver {
         require(!action.executed, "action executed");
         require(address(this).balance >= action.value, "insufficient eth");
         require(flags[2], "proposal not passed");
+        
+        // withdraw from parent Minion
+        if(action.token != address(0)) {
+            doWithdraw(action.token, action.amount);
+        }
 
         // execute call
         actions[proposalId].executed = true;
