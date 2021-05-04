@@ -12,7 +12,37 @@ interface IERC20 { // brief interface for moloch erc20 token txs
 }
 
 interface IERC721Receiver {
-    function onERC721Received(address operator, address from, uint256 tokenId, bytes calldata data) external returns (bytes4);
+    function onERC721Received(
+        address operator, 
+        address from, 
+        uint256 tokenId, 
+        bytes calldata data
+    )
+        external 
+        returns(bytes4);
+}
+
+interface IERC1155Receiver {
+
+    function onERC1155Received(
+        address operator,
+        address from,
+        uint256 id,
+        uint256 value,
+        bytes calldata data
+    )
+        external
+        returns(bytes4);
+
+    function onERC1155BatchReceived(
+        address operator,
+        address from,
+        uint256[] calldata ids,
+        uint256[] calldata values,
+        bytes calldata data
+    )
+        external
+        returns(bytes4);
 }
 
 interface IMOLOCH { // brief interface for moloch dao v2
@@ -79,7 +109,16 @@ contract Minion is IERC721Receiver {
 
     function onERC721Received (address, address, uint256, bytes calldata) external pure override returns(bytes4) {
         return bytes4(keccak256("onERC721Received(address,address,uint256,bytes)"));
-    } 
+    }
+    
+    function onERC1155Received(address, address, uint256, uint256, bytes calldata) external pure override returns(bytes4) {
+        return bytes4(keccak256("onERC1155Received(address,address,uint256,uint256,bytes)"));
+    }
+
+    function onERC1155BatchReceived(address, address, uint256[] calldata, uint256[] calldata, bytes calldata) external pure override returns(bytes4)
+    {
+        return bytes4(keccak256("onERC1155BatchReceived(address,address,uint256[],uint256[],bytes)"));
+    }
     
     //  -- Withdraw Functions --
 
