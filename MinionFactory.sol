@@ -110,9 +110,11 @@ contract Minion is IERC721Receiver {
         bytes calldata actionData,
         string calldata details
     ) external memberOnly returns (uint256) {
+        bool whitelisted = moloch.tokenWhitelist(actionTo);
         // No calls to zero address allows us to check that proxy submitted
         // the proposal without getting the proposal struct from parent moloch
         require(actionTo != address(0), "invalid actionTo");
+        require(whitelisted, "not a whitelisted contract");
 
         uint256 proposalId = moloch.submitProposal(
             address(this),
