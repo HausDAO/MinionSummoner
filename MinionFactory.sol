@@ -1,5 +1,48 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 pragma solidity 0.7.5;
+pragma abicoder v2;
+
+library SafeMath {
+
+  /**
+  * @dev Multiplies two numbers, throws on overflow.
+  */
+  function mul(uint256 a, uint256 b) internal pure returns (uint256 c) {
+    if (a == 0) {
+      return 0;
+    }
+    c = a * b;
+    assert(c / a == b);
+    return c;
+  }
+
+  /**
+  * @dev Integer division of two numbers, truncating the quotient.
+  */
+  function div(uint256 a, uint256 b) internal pure returns (uint256) {
+    // assert(b > 0); // Solidity automatically throws when dividing by 0
+    // uint256 c = a / b;
+    // assert(a == b * c + a % b); // There is no case in which this doesn't hold
+    return a / b;
+  }
+
+  /**
+  * @dev Subtracts two numbers, throws on overflow (i.e. if subtrahend is greater than minuend).
+  */
+  function sub(uint256 a, uint256 b) internal pure returns (uint256) {
+    assert(b <= a);
+    return a - b;
+  }
+
+  /**
+  * @dev Adds two numbers, throws on overflow.
+  */
+  function add(uint256 a, uint256 b) internal pure returns (uint256 c) {
+    c = a + b;
+    assert(c >= a);
+    return c;
+  }
+}
 
 interface IERC20 { // brief interface for moloch erc20 token txs
     function balanceOf(address who) external view returns (uint256);
@@ -17,8 +60,9 @@ interface IERC721Receiver {
 
 interface IMOLOCH { // brief interface for moloch dao v2
 
-
     function depositToken() external view returns (address);
+    
+    function totalShares() external view returns (uint256);
     
     function tokenWhitelist(address token) external view returns (bool);
     
@@ -41,10 +85,24 @@ interface IMOLOCH { // brief interface for moloch dao v2
         string calldata details
     ) external returns (uint256);
     
+    enum Vote {
+        Null, // default value, counted as abstention
+        Yes,
+        No
+    }
+    
+    struct Proposal {
+        uint256 yesVotes; // the total number of YES votes for this proposal
+        uint256 noVotes; // the total number of NO votes for this proposal
+    }
+    
+    function proposals(uint256 proposalId) external returns (Proposal memory);
+    
     function withdrawBalance(address token, uint256 amount) external;
 }
 
 contract Minion is IERC721Receiver {
+    using SafeMath for uint256;
     IMOLOCH public moloch;
     address public molochDepositToken;
     bool private initialized; // internally tracks deployment under eip-1167 proxy pattern
@@ -56,6 +114,7 @@ contract Minion is IERC721Receiver {
         address proposer;
         bool executed;
         bytes data;
+        uint256 quorum;
     }
 
     event ProposeAction(uint256 proposalId, address proposer);
@@ -108,7 +167,8 @@ contract Minion is IERC721Receiver {
         address actionTo,
         uint256 actionValue,
         bytes calldata actionData,
-        string calldata details
+        string calldata details,
+        uint256 actionQuorum
     ) external memberOnly returns (uint256) {
         // No calls to zero address allows us to check that proxy submitted
         // the proposal without getting the proposal struct from parent moloch
@@ -130,7 +190,8 @@ contract Minion is IERC721Receiver {
             to: actionTo,
             proposer: msg.sender,
             executed: false,
-            data: actionData
+            data: actionData,
+            quorum: actionQuorum
         });
 
         actions[proposalId] = action;
@@ -146,6 +207,11 @@ contract Minion is IERC721Receiver {
         require(action.to != address(0), "invalid proposalId");
         require(!action.executed, "action executed");
         require(address(this).balance >= action.value, "insufficient eth");
+        
+        bool isPassed = hasQuorum(proposalId, action.quorum);
+        
+        require(isPassed, "proposal quorum not met");
+        
         require(flags[2], "proposal not passed");
 
         // execute call
@@ -162,6 +228,29 @@ contract Minion is IERC721Receiver {
         delete actions[_proposalId];
         emit ActionCanceled(_proposalId);
         moloch.cancelProposal(_proposalId);
+    }
+    
+    function hasQuorum(uint256 _proposalId, uint256 _quorum) public returns (bool) {
+        // something like this to check is some quorum is met
+        // if met execution can proceed before proposal is processed
+        
+        uint256 padding = 100;
+        uint256 yesVotes;
+        uint256 noVotes;
+        uint256 totalShares = moloch.totalShares();
+        bool[6] memory flags = moloch.getProposalFlags(_proposalId);
+
+
+        yesVotes = moloch.proposals(_proposalId).yesVotes;
+        noVotes = moloch.proposals(_proposalId).noVotes;
+        
+        if (_quorum != 0) {
+            uint256 quorum = yesVotes.mul(padding).div(totalShares);
+            return quorum > _quorum && yesVotes > noVotes;  
+        }
+        return flags[2];
+        
+
     }
     
     //  -- Helper Functions --
