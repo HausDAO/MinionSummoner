@@ -56,6 +56,9 @@ contract Minion is IERC721Receiver {
         address proposer;
         bool executed;
         bytes data;
+        address conditionTarget;
+        bytes conditionData;
+        uint256 conditionExecTime;
     }
 
     event ProposeAction(uint256 proposalId, address proposer);
@@ -108,7 +111,10 @@ contract Minion is IERC721Receiver {
         address actionTo,
         uint256 actionValue,
         bytes calldata actionData,
-        string calldata details
+        bytes calldata conditionData,
+        address conditionTarget,
+        string calldata details,
+        uint256 conditionExecTime
     ) external memberOnly returns (uint256) {
         // No calls to zero address allows us to check that proxy submitted
         // the proposal without getting the proposal struct from parent moloch
@@ -130,7 +136,10 @@ contract Minion is IERC721Receiver {
             to: actionTo,
             proposer: msg.sender,
             executed: false,
-            data: actionData
+            data: actionData,
+            conditionTarget: conditionTarget,
+            conditionData: conditionData,
+            conditionExecTime: conditionExecTime
         });
 
         actions[proposalId] = action;
@@ -147,6 +156,13 @@ contract Minion is IERC721Receiver {
         require(!action.executed, "action executed");
         require(address(this).balance >= action.value, "insufficient eth");
         require(flags[2], "proposal not passed");
+        require(block.timestamp > action.conditionExecTime, "Conditional execution time not met");
+        
+        if(action.conditionTarget != address(0)) {
+            (bool conditionSuccess, bytes memory conditionRetData) = action.to.call{value: 0}(action.conditionData);
+            require(conditionSuccess, "Condition call failed");
+            // check conditionRetData for something?
+        }
 
         // execute call
         actions[proposalId].executed = true;
