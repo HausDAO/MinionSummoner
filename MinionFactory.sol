@@ -56,6 +56,10 @@ contract Minion is IERC721Receiver {
         address proposer;
         bool executed;
         bytes data;
+        address conditionTarget;
+        bytes conditionData;
+        bytes conditionExpectedState;
+        uint256 conditionExecTime;
     }
 
     event ProposeAction(uint256 proposalId, address proposer);
@@ -75,12 +79,12 @@ contract Minion is IERC721Receiver {
         moloch = IMOLOCH(_moloch);
         molochDepositToken = moloch.depositToken();
         initialized = true; 
-    }
-
-    function onERC721Received (address, address, uint256, bytes calldata) external pure override returns(bytes4) {
-        return bytes4(keccak256("onERC721Received(address,address,uint256,bytes)"));
     } 
     
+    function onERC721Received (address, address, uint256, bytes calldata) external pure override returns(bytes4) {
+        return bytes4(keccak256("onERC721Received(address,address,uint256,bytes)"));
+    }
+
     //  -- Withdraw Functions --
 
     function doWithdraw(address token, uint256 amount) external memberOnly {
@@ -103,12 +107,44 @@ contract Minion is IERC721Receiver {
     }
     
     //  -- Proposal Functions --
-    
+
+    // helper to fix stack too deep error
+    function saveAction(
+        address actionTo,
+        uint256 actionValue,
+        bytes calldata actionData,
+        bytes calldata conditionData,
+        address conditionTarget,
+        bytes calldata conditionExpectedState,
+        uint256 conditionExecTime,
+        uint256 proposalId
+    ) private {
+        Action memory action =
+            Action({
+                value: actionValue,
+                to: actionTo,
+                proposer: msg.sender,
+                executed: false,
+                data: actionData,
+                conditionTarget: conditionTarget,
+                conditionData: conditionData,
+                conditionExpectedState: conditionExpectedState,
+                conditionExecTime: conditionExecTime
+            });
+
+        actions[proposalId] = action;
+    }
+
     function proposeAction(
         address actionTo,
         uint256 actionValue,
         bytes calldata actionData,
-        string calldata details
+        bytes calldata conditionData,
+        address conditionTarget,
+        bytes calldata conditionExpectedState,
+        string calldata details,
+        uint256 paymentRequested,
+        uint256 conditionExecTime
     ) external memberOnly returns (uint256) {
         // No calls to zero address allows us to check that proxy submitted
         // the proposal without getting the proposal struct from parent moloch
@@ -120,20 +156,21 @@ contract Minion is IERC721Receiver {
             0,
             0,
             molochDepositToken,
-            0,
+            paymentRequested,
             molochDepositToken,
             details
         );
 
-        Action memory action = Action({
-            value: actionValue,
-            to: actionTo,
-            proposer: msg.sender,
-            executed: false,
-            data: actionData
-        });
-
-        actions[proposalId] = action;
+        saveAction(
+            actionTo,
+            actionValue,
+            actionData,
+            conditionData,
+            conditionTarget,
+            conditionExpectedState,
+            conditionExecTime,
+            proposalId
+        );
 
         emit ProposeAction(proposalId, msg.sender);
         return proposalId;
@@ -147,6 +184,22 @@ contract Minion is IERC721Receiver {
         require(!action.executed, "action executed");
         require(address(this).balance >= action.value, "insufficient eth");
         require(flags[2], "proposal not passed");
+        require(
+            block.timestamp > action.conditionExecTime,
+            "Conditional execution time not met"
+        );
+
+        if (action.conditionTarget != address(0)) {
+            (bool conditionSuccess, bytes memory conditionRetData) = action.conditionTarget.call{value: 0}(action.conditionData);
+            require(conditionSuccess, "Condition call failed");
+            require(
+                conditionRetData.length == action.conditionExpectedState.length,
+                "Condition return does not match expected state length"
+            );
+            for (uint256 i = 0; i < conditionRetData.length; i++) {
+                require(conditionRetData[i] == action.conditionExpectedState[i], "Condition return does not match expected state");
+            }
+        }
 
         // execute call
         actions[proposalId].executed = true;
@@ -167,7 +220,7 @@ contract Minion is IERC721Receiver {
     //  -- Helper Functions --
     
     function isMember(address user) public view returns (bool) {
-        
+
         (, uint shares,,,,) = moloch.members(user);
         return shares > 0;
     }
@@ -219,8 +272,7 @@ contract MinionFactory is CloneFactory {
         address moloch;
         string details; 
     }
-    
-    
+
     constructor(address payable _template) {
         template = _template;
     }
@@ -236,6 +288,5 @@ contract MinionFactory is CloneFactory {
         emit SummonMinion(address(minion), moloch, details, minionType);
         
         return(address(minion));
-        
     }
 }
