@@ -28,7 +28,7 @@ contract Minion is IERC721Receiver {
     event PulledFunds(address moloch, uint256 amount);
     event ActionCanceled(uint256 proposalId);
     
-     modifier memberOnly() {
+    modifier memberOnly() {
         require(isMember(msg.sender), "Minion::not member");
         _;
     }
