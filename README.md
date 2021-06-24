@@ -8,6 +8,9 @@ yarn test
 
 ```
 
+![Screen Shot 2021-06-24 at 7 53 14 PM](https://user-images.githubusercontent.com/4401444/123346283-eb1d3c00-d525-11eb-9a32-cc085d0307ae.png)
+
+
 ## NFT Tribute Minion
 
 Applicant proposes NFT for shares, or NFT for treasury funds.
