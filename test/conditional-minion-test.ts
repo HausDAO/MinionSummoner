@@ -14,6 +14,8 @@ describe('Conditional Minion', function () {
   let Moloch: ContractFactory
   let moloch: Moloch
   
+  let molochAsAlice: Moloch
+  
   let ConditionalMinion: ContractFactory
   let conditionalMinion: ConditionalMinion
 
@@ -72,6 +74,7 @@ describe('Conditional Minion', function () {
 
       // deploy Moloch and Minion
       moloch = (await Moloch.deploy()) as Moloch
+      molochAsAlice = await moloch.connect(alice)
       // 5 block periods, 5 period voting, 1 period grace, 0 proposal deposit, 3 dilution bound, 0 reward, 100 summoner shares, 50 alice shares
       await moloch.init([deployerAddress, aliceAddress], [anyErc20.address], 5, 5, 1, 0, 3, 0, [100, 50])
 
@@ -149,6 +152,58 @@ describe('Conditional Minion', function () {
         await fastForwardBlocks(31)
         
         await moloch.processProposal(0)
+        
+        await conditionalMinionAsAlice.executeAction(0)
+        
+        expect(await anyErc20.balanceOf(aliceAddress)).to.equal(10)
+        expect(await anyErc20.balanceOf(conditionalMinion.address)).to.equal(490)
+      })
+      it('Blocks a minion proposal based on moloch share count', async function () {
+        
+        const action = anyErc20.interface.encodeFunctionData('transfer', [aliceAddress, 10])
+        const condition = moloch.interface.encodeFunctionData('members', [aliceAddress])
+        // const expectedCondition = await ethers.provider.call({to: moloch.address, data: condition})
+        const expectedCondition = '0x00000000000000000000000070997970c51812dc3a010c7d01b50e0d17dc79c800000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000'
+        
+
+        await conditionalMinion.proposeAction(anyErc20.address, 0, action, condition, moloch.address, expectedCondition, 'test', 0, 0)
+        
+        await fastForwardBlocks(1)
+        await moloch.sponsorProposal(0)
+
+        await fastForwardBlocks(5)
+        await moloch.submitVote(0, 1)
+        
+        await fastForwardBlocks(31)
+        
+        await moloch.processProposal(0)
+        
+        expect(conditionalMinionAsAlice.executeAction(0)).to.be.revertedWith('Condition return does not match expected state')
+        
+        expect(await anyErc20.balanceOf(aliceAddress)).to.equal(0)
+        expect(await anyErc20.balanceOf(conditionalMinion.address)).to.equal(500)
+      })
+      it('Enables a minion proposal based on moloch share count', async function () {
+        const action = anyErc20.interface.encodeFunctionData('transfer', [aliceAddress, 10])
+        
+        // Expect that Alice's share balance is 0 for minion to execute
+        const condition = moloch.interface.encodeFunctionData('members', [aliceAddress])
+        // const expectedCondition = await ethers.provider.call({to: moloch.address, data: condition})
+        const expectedCondition = '0x00000000000000000000000070997970c51812dc3a010c7d01b50e0d17dc79c800000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000'
+
+        await conditionalMinion.proposeAction(anyErc20.address, 0, action, condition, moloch.address, expectedCondition, 'test', 0, 0)
+        
+        await fastForwardBlocks(1)
+        await moloch.sponsorProposal(0)
+
+        await fastForwardBlocks(5)
+        await moloch.submitVote(0, 1)
+        
+        await fastForwardBlocks(31)
+        
+        await moloch.processProposal(0)
+        
+        await molochAsAlice.ragequit(50, 0)
         
         await conditionalMinionAsAlice.executeAction(0)
         
