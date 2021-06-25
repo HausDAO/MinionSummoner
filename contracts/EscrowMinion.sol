@@ -106,7 +106,7 @@ contract EscrowMinion is IERC721Receiver {
           erc721.safeTransferFrom(applicant, address(this), tokenId);
 
           uint256 proposalId = thisMoloch.submitProposal(
-              address(this),
+              applicant,
               requestAmount,
               0,
               0,

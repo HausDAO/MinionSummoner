@@ -65,8 +65,8 @@ describe('AnyNft', function () {
     VanillaMinion = await ethers.getContractFactory('VanillaMinion')
     signers = await ethers.getSigners()
     deployer = signers[0]
-    alice = signers[0]
-    bob = signers[1]
+    alice = signers[1]
+    bob = signers[2]
 
     deployerAddress = deployer.address
     aliceAddress = alice.address
@@ -114,7 +114,7 @@ describe('AnyNft', function () {
 
       })
       it('Moves NFT into minion during proposal', async function () {
-        await anyNft.approve(escrowMinion.address, 1)
+        await anyNftAsAlice.approve(escrowMinion.address, 1)
         await escrowMinionAsAlice.proposeTribute(aliceAddress, moloch.address, anyNft.address, 1, vanillaMinion.address, 5, 'test')
         
         expect(await anyNft.ownerOf(1)).to.equal(escrowMinion.address)
@@ -122,7 +122,7 @@ describe('AnyNft', function () {
       })
 
       it('Moves NFT into vault if proposal passes', async function () {
-        await anyNft.approve(escrowMinion.address, 1)
+        await anyNftAsAlice.approve(escrowMinion.address, 1)
         await escrowMinionAsAlice.proposeTribute(aliceAddress, moloch.address, anyNft.address, 1, vanillaMinion.address, 5, 'test')
         
         await fastForwardBlocks(1)
@@ -141,8 +141,30 @@ describe('AnyNft', function () {
 
       })
 
+      it('Increases the shares of the applicant', async function () {
+        await anyNftAsAlice.approve(escrowMinion.address, 1)
+        await escrowMinionAsAlice.proposeTribute(aliceAddress, moloch.address, anyNft.address, 1, vanillaMinion.address, 5, 'test')
+        
+        await fastForwardBlocks(1)
+        await moloch.sponsorProposal(0)
+        await fastForwardBlocks(5)
+        
+        await moloch.submitVote(0, 1)
+
+        await fastForwardBlocks(31)
+        
+        await moloch.processProposal(0)
+
+        await escrowMinionAsAlice.executeAction(0, moloch.address)
+        await fastForwardBlocks(1)
+
+        expect(await anyNft.ownerOf(1)).to.equal(vanillaMinion.address)
+        expect((await moloch.members(aliceAddress)).shares).to.equal(5)
+
+      })
+
       it('Returns NFT to applicant if proposal fails', async function () {
-        await anyNft.approve(escrowMinion.address, 1)
+        await anyNftAsAlice.approve(escrowMinion.address, 1)
         await escrowMinionAsAlice.proposeTribute(aliceAddress, moloch.address, anyNft.address, 1, vanillaMinion.address, 5, 'test')
         
         await fastForwardBlocks(1)
@@ -162,7 +184,7 @@ describe('AnyNft', function () {
       })
 
       it('Returns NFT to applicant if proposal is cancelled', async function () {
-        await anyNft.approve(escrowMinion.address, 1)
+        await anyNftAsAlice.approve(escrowMinion.address, 1)
         await escrowMinionAsAlice.proposeTribute(aliceAddress, moloch.address, anyNft.address, 1, vanillaMinion.address, 5, 'test')
         
         await fastForwardBlocks(1)
@@ -171,7 +193,7 @@ describe('AnyNft', function () {
       })
 
       it('Cannot cancel after sponsoring', async function () {
-        await anyNft.approve(escrowMinion.address, 1)
+        await anyNftAsAlice.approve(escrowMinion.address, 1)
         await escrowMinionAsAlice.proposeTribute(aliceAddress, moloch.address, anyNft.address, 1, vanillaMinion.address, 5, 'test')
         
         await fastForwardBlocks(1)
