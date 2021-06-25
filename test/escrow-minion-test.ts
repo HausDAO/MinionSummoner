@@ -8,19 +8,9 @@ import { Moloch } from '../src/types/Moloch'
 import { EscrowMinion } from '../src/types/EscrowMinion'
 import { VanillaMinion } from '../src/types/VanillaMinion'
 import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/signers'
+import { fastForwardBlocks } from './util'
 
 use(solidity)
-
-const fastForward = async (seconds: number) => {
-  await ethers.provider.send('evm_increaseTime', [seconds])
-  await ethers.provider.send("evm_mine", [])
-}
-
-const fastForwardBlocks = async (blocks: number) => {
-  for (let index = 0; index < blocks; index++) {
-    await ethers.provider.send("evm_mine", [])
-  }
-}
 
 describe('AnyNft', function () {
   let Moloch: ContractFactory

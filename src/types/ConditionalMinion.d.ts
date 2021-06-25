@@ -20,7 +20,7 @@ import { BytesLike } from "@ethersproject/bytes";
 import { Listener, Provider } from "@ethersproject/providers";
 import { FunctionFragment, EventFragment, Result } from "@ethersproject/abi";
 
-interface MinionInterface extends ethers.utils.Interface {
+interface ConditionalMinionInterface extends ethers.utils.Interface {
   functions: {
     "actions(uint256)": FunctionFragment;
     "cancelAction(uint256)": FunctionFragment;
@@ -128,7 +128,7 @@ interface MinionInterface extends ethers.utils.Interface {
   getEvent(nameOrSignatureOrTopic: "PulledFunds"): EventFragment;
 }
 
-export class Minion extends Contract {
+export class ConditionalMinion extends Contract {
   connect(signerOrProvider: Signer | Provider | string): this;
   attach(addressOrName: string): this;
   deployed(): Promise<this>;
@@ -139,7 +139,7 @@ export class Minion extends Contract {
   removeAllListeners(eventName: EventFilter | string): this;
   removeListener(eventName: any, listener: Listener): this;
 
-  interface: MinionInterface;
+  interface: ConditionalMinionInterface;
 
   functions: {
     actions(
