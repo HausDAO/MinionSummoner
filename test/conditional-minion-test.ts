@@ -66,7 +66,7 @@ describe('Conditional Minion', function () {
 
     })
   })
-  describe.only('Minions', function () {
+  describe('Minions', function () {
     this.beforeEach(async function () {
       // Deploy ERC20 contract
       anyErc20 = (await AnyERC20.deploy()) as AnyErc20
