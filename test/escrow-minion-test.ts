@@ -12,7 +12,7 @@ import { fastForwardBlocks } from './util'
 
 use(solidity)
 
-describe('AnyNft', function () {
+describe('Escrow', function () {
   let Moloch: ContractFactory
   let moloch: Moloch
   
@@ -171,6 +171,21 @@ describe('AnyNft', function () {
 
         expect(await anyNft.ownerOf(1)).to.equal(aliceAddress)
 
+      })
+
+      it('Fails to execute if proposal has not been processed', async function () {
+        await anyNftAsAlice.approve(escrowMinion.address, 1)
+        await escrowMinionAsAlice.proposeTribute(aliceAddress, moloch.address, anyNft.address, 1, vanillaMinion.address, 5, 'test')
+
+        await fastForwardBlocks(1)
+        await moloch.sponsorProposal(0)
+        await fastForwardBlocks(5)
+        
+        await moloch.submitVote(0, 1)
+
+        await fastForwardBlocks(31)
+        
+        expect(escrowMinionAsAlice.executeAction(0, moloch.address)).to.be.revertedWith('proposal not processed')
       })
 
       it('Returns NFT to applicant if proposal is cancelled', async function () {

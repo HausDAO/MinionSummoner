@@ -82,13 +82,15 @@ contract EscrowMinion is IERC721Receiver {
      * @param requestAmount Amount of shares requested
      * @param details Info about proposal
      */
+    // todo no re-entrency
     function proposeTribute(
-        address applicant,
-        address molochAddress,
+        address applicant, // can remove
+        address molochAddress, 
+        // add array of erc1155, 721 or 20
         address tokenAddress,
         uint256 tokenId,
         address vaultAddress,
-        uint256 requestAmount,
+        uint256 requestAmount, // also request loot or treasury funds
         string calldata details
         ) external returns (uint256) {
           IMOLOCH thisMoloch = IMOLOCH(molochAddress);
@@ -131,6 +133,7 @@ contract EscrowMinion is IERC721Receiver {
           return proposalId;
         }
     
+    // todo no re-entrency
     function executeAction(uint256 proposalId, address molochAddress) external {
         IMOLOCH thisMoloch = IMOLOCH(molochAddress);
 
@@ -142,6 +145,8 @@ contract EscrowMinion is IERC721Receiver {
 
         require(!action.executed, "action executed");
 
+        require(flags[1], "proposal not processed");
+
         require(!flags[3], "proposal cancelled");
 
         // bool[6] memory flags; // [sponsored, processed, didPass, cancelled, whitelist, guildkick]
@@ -152,7 +157,7 @@ contract EscrowMinion is IERC721Receiver {
         // if passed, send NFT to vault
         if(flags[2]) {
           erc721.safeTransferFrom(address(this), action.vaultAddress, action.tokenId);
-        } else if (flags[1] && !flags[2]) {
+        } else {
           erc721.safeTransferFrom(address(this), action.applicant, action.tokenId);
         }
 
@@ -161,6 +166,7 @@ contract EscrowMinion is IERC721Receiver {
         emit ExecuteAction(proposalId, msg.sender, molochAddress);
     }
     
+    // todo no re-entrency
     function cancelAction(uint256 _proposalId, address molochAddress) external {
         IMOLOCH thisMoloch = IMOLOCH(molochAddress);
         TributeEscrowAction memory action = actions[molochAddress][_proposalId];

@@ -76,6 +76,8 @@ contract ERC1271Minion is IERC721Receiver, IERC1271 {
     }
 
     mapping (bytes32 => DAOSignature) public signatures; // msgHash => Signature
+    // todo lookup signature hash by
+    mapping (uint256 => bytes32) msgHashes;
 
     event ProposeAction(uint256 proposalId, address proposer);
     event ExecuteAction(uint256 proposalId, address executor);
@@ -137,7 +139,7 @@ contract ERC1271Minion is IERC721Receiver, IERC1271 {
         bool[6] memory flags = moloch.getProposalFlags(daoSignature.proposalId);
         require(flags[2], 'Proposal has not passed');
         require(daoSignature.signatureHash == keccak256(abi.encodePacked(signature)), 'Invalid signature hash');
-        return signatures[permissionHash].magicValue;
+        return daoSignature.magicValue;
     }
     
     //  -- Proposal Functions --

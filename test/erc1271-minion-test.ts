@@ -97,6 +97,7 @@ describe('ERC1271 Minion', function () {
     })
     
     it('Sets up the tests', async function () {
+      console.log({arbitarySignature, arbitraryMsgHash, arbitrarySignatureHash})
       expect(await moloch.totalGuildBankTokens()).to.equal(1)
       expect((await moloch.members(aliceAddress)).shares).to.equal(50)
       expect((await moloch.members(deployerAddress)).shares).to.equal(100)
